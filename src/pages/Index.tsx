@@ -27,6 +27,14 @@ const Index = () => {
   const { toast } = useToast();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<Array<{id: number, items: CartItem[], total: number, date: string}>>([]);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoDiscount, setPromoDiscount] = useState(0);
+
+  const promoCodes = {
+    'GAME2024': 15,
+    'NEWBIE': 25,
+    'VIP50': 50
+  };
 
   const donateItems: DonateItem[] = [
     {
@@ -103,11 +111,34 @@ const Index = () => {
 
 
 
+  const applyPromoCode = () => {
+    const code = promoCode.toUpperCase();
+    if (promoCodes[code as keyof typeof promoCodes]) {
+      setPromoDiscount(promoCodes[code as keyof typeof promoCodes]);
+      toast({
+        title: "Промокод активирован!",
+        description: `Скидка ${promoCodes[code as keyof typeof promoCodes]}% применена`,
+      });
+    } else {
+      toast({
+        title: "Неверный промокод",
+        description: "Попробуйте другой код",
+        variant: "destructive"
+      });
+    }
+  };
+
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => {
+    let total = cart.reduce((sum, item) => {
       const itemPrice = item.discount ? item.price * (1 - item.discount / 100) : item.price;
       return sum + (itemPrice * item.quantity);
     }, 0);
+    
+    if (promoDiscount > 0) {
+      total = total * (1 - promoDiscount / 100);
+    }
+    
+    return total;
   };
 
   const completePurchase = () => {
@@ -119,6 +150,8 @@ const Index = () => {
     };
     setPurchaseHistory([newPurchase, ...purchaseHistory]);
     setCart([]);
+    setPromoCode('');
+    setPromoDiscount(0);
     toast({
       title: "Покупка завершена!",
       description: "Предметы добавлены в профиль",
@@ -238,6 +271,23 @@ const Index = () => {
                     ))}
                     
                     <div className="space-y-3 pt-4 border-t border-border">
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="Промокод"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value)}
+                        />
+                        <Button onClick={applyPromoCode} variant="secondary">
+                          Применить
+                        </Button>
+                      </div>
+                      
+                      {promoDiscount > 0 && (
+                        <Badge variant="secondary" className="w-full justify-center py-2">
+                          Скидка {promoDiscount}% активна!
+                        </Badge>
+                      )}
+                      
                       <div className="flex justify-between items-center text-lg font-bold">
                         <span>Итого:</span>
                         <span className="text-primary">{calculateTotal().toFixed(0)}₽</span>
@@ -272,6 +322,10 @@ const Index = () => {
             <Button size="lg" className="gap-2">
               <Icon name="Zap" size={20} />
               Смотреть донаты
+            </Button>
+            <Button size="lg" variant="outline" className="gap-2">
+              <Icon name="Gift" size={20} />
+              Промокоды
             </Button>
           </div>
         </div>
@@ -349,6 +403,24 @@ const Index = () => {
           <Accordion type="single" collapsible className="space-y-4">
             <AccordionItem value="item-1">
               <AccordionTrigger className="text-left">
+                Как активировать промокод?
+              </AccordionTrigger>
+              <AccordionContent>
+                Добавьте товары в корзину, введите промокод в специальное поле и нажмите "Применить". Скидка автоматически рассчитается.
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-2">
+              <AccordionTrigger className="text-left">
+                Можно ли использовать несколько промокодов?
+              </AccordionTrigger>
+              <AccordionContent>
+                Одновременно можно использовать только один промокод. Скидки от промокода суммируются со скидками на товары.
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-3">
+              <AccordionTrigger className="text-left">
                 Как долго действует VIP статус?
               </AccordionTrigger>
               <AccordionContent>
@@ -356,7 +428,7 @@ const Index = () => {
               </AccordionContent>
             </AccordionItem>
             
-            <AccordionItem value="item-2">
+            <AccordionItem value="item-4">
               <AccordionTrigger className="text-left">
                 Какие способы оплаты доступны?
               </AccordionTrigger>
