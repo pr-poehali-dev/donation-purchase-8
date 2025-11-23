@@ -26,8 +26,7 @@ interface CartItem extends DonateItem {
 const Index = () => {
   const { toast } = useToast();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [purchaseHistory, setPurchaseHistory] = useState<Array<{id: number, items: CartItem[], total: number, date: string}>>([]);
 
   const donateItems: DonateItem[] = [
     {
@@ -83,11 +82,7 @@ const Index = () => {
     }
   ];
 
-  const promoCodes = {
-    'GAME2024': 15,
-    'NEWBIE': 25,
-    'VIP50': 50
-  };
+
 
   const addToCart = (item: DonateItem) => {
     const existing = cart.find(c => c.id === item.id);
@@ -106,34 +101,28 @@ const Index = () => {
     setCart(cart.filter(item => item.id !== id));
   };
 
-  const applyPromoCode = () => {
-    const code = promoCode.toUpperCase();
-    if (promoCodes[code as keyof typeof promoCodes]) {
-      setPromoDiscount(promoCodes[code as keyof typeof promoCodes]);
-      toast({
-        title: "Промокод активирован!",
-        description: `Скидка ${promoCodes[code as keyof typeof promoCodes]}% применена`,
-      });
-    } else {
-      toast({
-        title: "Неверный промокод",
-        description: "Попробуйте другой код",
-        variant: "destructive"
-      });
-    }
-  };
+
 
   const calculateTotal = () => {
-    let total = cart.reduce((sum, item) => {
+    return cart.reduce((sum, item) => {
       const itemPrice = item.discount ? item.price * (1 - item.discount / 100) : item.price;
       return sum + (itemPrice * item.quantity);
     }, 0);
-    
-    if (promoDiscount > 0) {
-      total = total * (1 - promoDiscount / 100);
-    }
-    
-    return total;
+  };
+
+  const completePurchase = () => {
+    const newPurchase = {
+      id: Date.now(),
+      items: [...cart],
+      total: calculateTotal(),
+      date: new Date().toLocaleDateString('ru-RU')
+    };
+    setPurchaseHistory([newPurchase, ...purchaseHistory]);
+    setCart([]);
+    toast({
+      title: "Покупка завершена!",
+      description: "Предметы добавлены в профиль",
+    });
   };
 
   const filterByCategory = (category: string) => {
@@ -154,10 +143,51 @@ const Index = () => {
             <a href="#donates" className="text-foreground hover:text-primary transition-colors">Донаты</a>
             <a href="#faq" className="text-foreground hover:text-primary transition-colors">FAQ</a>
             <a href="#support" className="text-foreground hover:text-primary transition-colors">Поддержка</a>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Icon name="User" size={16} />
-              Профиль
-            </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Icon name="User" size={16} />
+                  Профиль
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Профиль игрока</SheetTitle>
+                  <SheetDescription>История покупок</SheetDescription>
+                </SheetHeader>
+                
+                <div className="mt-6 space-y-4">
+                  {purchaseHistory.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">История пуста</p>
+                  ) : (
+                    purchaseHistory.map((purchase) => (
+                      <Card key={purchase.id}>
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-sm">Покупка #{purchase.id.toString().slice(-6)}</CardTitle>
+                              <CardDescription>{purchase.date}</CardDescription>
+                            </div>
+                            <Badge variant="secondary">{purchase.total.toFixed(0)}₽</Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {purchase.items.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2 text-sm">
+                                <span>{item.image}</span>
+                                <span>{item.name}</span>
+                                <span className="text-muted-foreground">x{item.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </nav>
 
           <Sheet>
@@ -208,29 +238,12 @@ const Index = () => {
                     ))}
                     
                     <div className="space-y-3 pt-4 border-t border-border">
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Промокод"
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value)}
-                        />
-                        <Button onClick={applyPromoCode} variant="secondary">
-                          Применить
-                        </Button>
-                      </div>
-                      
-                      {promoDiscount > 0 && (
-                        <Badge variant="secondary" className="w-full justify-center py-2">
-                          Скидка {promoDiscount}% активна!
-                        </Badge>
-                      )}
-                      
                       <div className="flex justify-between items-center text-lg font-bold">
                         <span>Итого:</span>
                         <span className="text-primary">{calculateTotal().toFixed(0)}₽</span>
                       </div>
                       
-                      <Button className="w-full" size="lg">
+                      <Button className="w-full" size="lg" onClick={completePurchase}>
                         <Icon name="CreditCard" size={20} className="mr-2" />
                         Оплатить
                       </Button>
@@ -253,16 +266,12 @@ const Index = () => {
             Магазин донатов
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Получите эксклюзивные привилегии, валюту и предметы. Используйте промокоды для дополнительных скидок!
+            Получите эксклюзивные привилегии, валюту и предметы для вашего персонажа!
           </p>
           <div className="flex gap-4 justify-center">
             <Button size="lg" className="gap-2">
               <Icon name="Zap" size={20} />
               Смотреть донаты
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2">
-              <Icon name="Gift" size={20} />
-              Промокоды
             </Button>
           </div>
         </div>
@@ -328,38 +337,7 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="py-16 px-4 bg-card/50">
-        <div className="container mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-heading font-bold mb-4">Активные промокоды</h2>
-            <p className="text-muted-foreground">Используйте промокоды для получения скидки</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Card className="text-center hover-lift">
-              <CardHeader>
-                <div className="text-4xl mb-2">🎮</div>
-                <CardTitle>GAME2024</CardTitle>
-                <CardDescription>Скидка 15%</CardDescription>
-              </CardHeader>
-            </Card>
-            <Card className="text-center hover-lift">
-              <CardHeader>
-                <div className="text-4xl mb-2">🌟</div>
-                <CardTitle>NEWBIE</CardTitle>
-                <CardDescription>Скидка 25% для новичков</CardDescription>
-              </CardHeader>
-            </Card>
-            <Card className="text-center hover-lift animate-glow">
-              <CardHeader>
-                <div className="text-4xl mb-2">👑</div>
-                <CardTitle>VIP50</CardTitle>
-                <CardDescription>Скидка 50% на VIP</CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
-        </div>
-      </section>
+
 
       <section id="faq" className="py-16 px-4">
         <div className="container mx-auto max-w-3xl">
@@ -371,24 +349,6 @@ const Index = () => {
           <Accordion type="single" collapsible className="space-y-4">
             <AccordionItem value="item-1">
               <AccordionTrigger className="text-left">
-                Как активировать промокод?
-              </AccordionTrigger>
-              <AccordionContent>
-                Добавьте товары в корзину, введите промокод в специальное поле и нажмите "Применить". Скидка автоматически рассчитается.
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="item-2">
-              <AccordionTrigger className="text-left">
-                Можно ли использовать несколько промокодов?
-              </AccordionTrigger>
-              <AccordionContent>
-                Одновременно можно использовать только один промокод. Скидки от промокода суммируются со скидками на товары.
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="item-3">
-              <AccordionTrigger className="text-left">
                 Как долго действует VIP статус?
               </AccordionTrigger>
               <AccordionContent>
@@ -396,7 +356,7 @@ const Index = () => {
               </AccordionContent>
             </AccordionItem>
             
-            <AccordionItem value="item-4">
+            <AccordionItem value="item-2">
               <AccordionTrigger className="text-left">
                 Какие способы оплаты доступны?
               </AccordionTrigger>
